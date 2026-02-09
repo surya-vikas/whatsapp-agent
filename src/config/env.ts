@@ -1,15 +1,27 @@
 export interface Config {
-  OPENROUTER_API_KEY: string;
+  inferenceProvider: 'openrouter' | 'anthropic';
+  anthropicApiKey?: string;
+  openrouterApiKey?: string;
 }
 
-const envVars = process.env;
+const inferenceProvider = (process.env.INFERENCE_PROVIDER || 'openrouter').toLowerCase();
 
-if (!envVars.OPENROUTER_API_KEY) {
+if (!['openrouter', 'anthropic'].includes(inferenceProvider)) {
   throw new Error(
-    'OPENROUTER_API_KEY is required. Please set it in your .env file.'
+    `Invalid INFERENCE_PROVIDER: "${inferenceProvider}". Must be 'openrouter' or 'anthropic'.`
   );
 }
 
+if (inferenceProvider === 'openrouter' && !process.env.OPENROUTER_API_KEY) {
+  throw new Error('OPENROUTER_API_KEY is required when INFERENCE_PROVIDER=openrouter');
+}
+
+if (inferenceProvider === 'anthropic' && !process.env.ANTHROPIC_API_KEY) {
+  throw new Error('ANTHROPIC_API_KEY is required when INFERENCE_PROVIDER=anthropic');
+}
+
 export const config: Config = {
-  OPENROUTER_API_KEY: envVars.OPENROUTER_API_KEY!
+  inferenceProvider: inferenceProvider as 'openrouter' | 'anthropic',
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+  openrouterApiKey: process.env.OPENROUTER_API_KEY,
 };

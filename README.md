@@ -18,9 +18,15 @@ bun install
 
 ### Configure
 
+Copy `.env.example` to `.env` and set your provider:
+
 ```bash
-# Set your OpenRouter API key
-export OPENROUTER_API_KEY="sk-or-..."
+# Choose your provider
+INFERENCE_PROVIDER=openrouter   # or 'anthropic'
+
+# Set the API key for your chosen provider
+OPENROUTER_API_KEY=sk-or-...    # if using openrouter
+ANTHROPIC_API_KEY=sk-ant-...    # if using anthropic
 ```
 
 ### Run
@@ -55,12 +61,18 @@ src/
 └── main.ts                         # Entry point
 ```
 
-## Model Resolution
+## Inference Providers
 
-- **Default:** `openrouter/moonshotai/kimi-k2.5` (Kimi K2.5 via OpenRouter)
-- **Fallback:** `openrouter/arcee-ai/trinity-large-preview:free` (free)
+### Anthropic (direct)
+Set `INFERENCE_PROVIDER=anthropic` with your `ANTHROPIC_API_KEY`.
+- Default model: `claude-sonnet-4-20250514`
+- Uses Anthropic SDK directly — fastest, most reliable
 
-The resolver automatically tests the preferred model and falls back if unavailable. All fallback events are logged.
+### OpenRouter (via OpenCode)
+Set `INFERENCE_PROVIDER=openrouter` with your `OPENROUTER_API_KEY`.
+- Default model: `openrouter/moonshotai/kimi-k2.5`
+- Fallback: `openrouter/arcee-ai/trinity-large-preview:free` (free)
+- Auto-resolves and falls back if preferred model unavailable
 
 ## How It Works
 
