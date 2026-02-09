@@ -2,22 +2,28 @@ import { logger } from "../../utils/logger";
 import { AppError } from "../../utils/errors";
 
 export interface ModelResolver {
-  getActiveModel: () => Promise<string>;
+  getActiveModel: (provider: string) => Promise<string>;
 }
 
 export class OpenCodeModelResolver implements ModelResolver {
-  private static readonly PREFERRED_MODEL = "openrouter/moonshotai/kimi-k2.5";
+  private static readonly PREFERRED_MODELS: Record<string, string> = {
+    opencode: "openrouter/moonshotai/kimi-k2.5",
+    opencodezen: "opencode/zen/kimi-k2.5",
+    mistral: "mistral/mistral-7b"
+  };
   private static readonly FALLBACK_MODEL = "openrouter/arcee-ai/trinity-large-preview:free";
 
-  async getActiveModel(): Promise<string> {
+  async getActiveModel(provider: string): Promise<string> {
     try {
+      const preferredModel = OpenCodeModelResolver.PREFERRED_MODELS[provider] || OpenCodeModelResolver.PREFERRED_MODELS.opencode;
+
       // First try the preferred model
-      const preferred = await this.testModel(OpenCodeModelResolver.PREFERRED_MODEL);
+      const preferred = await this.testModel(preferredModel);
       if (preferred) {
-        return OpenCodeModelResolver.PREFERRED_MODEL;
+        return preferredModel;
       }
     } catch (error) {
-      logger.warn("Preferred model unavailable, attempting fallback:", error);
+      logger.warn(`${provider} preferred model unavailable, attempting fallback:`, error);
     }
 
     // Fallback to the backup model
@@ -60,4 +66,4 @@ export const createModelResolver = (): ModelResolver => {
 
 // Convenience function for direct use
 const resolverInstance = new OpenCodeModelResolver();
-export const getActiveModel = (): Promise<string> => resolverInstance.getActiveModel();
+export const getActiveModel = (provider: string): Promise<string> => resolverInstance.getActiveModel(provider);

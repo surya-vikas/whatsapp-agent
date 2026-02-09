@@ -8,7 +8,7 @@ export interface WhatsAppConnection {
 
 export const createConnection = async (): Promise<WhatsAppConnection> => {
   logger.info('Initializing WhatsApp connection...');
-  
+
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const sock = makeWASocket({
     auth: state,
@@ -18,11 +18,15 @@ export const createConnection = async (): Promise<WhatsAppConnection> => {
   sock.ev.on('creds.update', saveCreds);
 
   sock.ev.on('connection.update', (update: any) => {
+    if (update.qr) {
+      logger.info('QR Code received, scan with WhatsApp:');
+      console.log(update.qr);
+    }
     if (update.state === 'connected') {
       logger.info('WhatsApp connected!');
     } else if (update.state === 'disconnected') {
       logger.warn('WhatsApp disconnected. Reason:', update.reason);
-      
+
       if (update.reason === 'disconnected' || update.reason === 'loggedOut' || update.reason === 'userLoggedOut') {
         logger.info('Attempting to reconnect...');
         setTimeout(() => {
