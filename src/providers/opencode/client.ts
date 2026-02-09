@@ -1,6 +1,5 @@
-import { spawn } from "bun";
-import { logger } from "../utils/logger";
-import { AppError } from "../utils/errors";
+import { logger } from "../../utils/logger";
+import { AppError } from "../../utils/errors";
 
 export interface OpenCodeClient {
   sendMessage: (message: string, model: string) => Promise<string>;
@@ -14,38 +13,40 @@ export class OpenCodeClientImpl implements OpenCodeClient {
   }
 
   async sendMessage(message: string, model: string): Promise<string> {
-    try {
-      const proc = await spawn("opencode", ["run", "-m", model, "--format", "json"], {
-        stdin: "pipe",
-        stdout: "pipe",
-        stderr: "pipe"
-      });
+    const maxRetries = 3;
+    let lastError: Error | null = null;
 
-      // Write the message to stdin
-      await proc.stdin.write(message);
-      await proc.stdin.end();
-
-      // Read the output
-      const stdout = await proc.stdout.read();
-      const stderr = await proc.stderr.read();
-
-      // Wait for the process to exit
-      const exitCode = await proc.exitCode;
-
-      if (exitCode !== 0) {
-        throw new AppError(`OpenCode process failed with exit code ${exitCode}: ${stderr}`);
-      }
-
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const response = JSON.parse(stdout);
-        return response.content || "";
-      } catch (parseError) {
-        throw new AppError(`Failed to parse OpenCode response: ${stdout}`);
+        const proc = Bun.spawn(["opencode", "run", "-m", model, message], {
+          stdout: "pipe",
+          stderr: "pipe"
+        });
+
+        // Read the output
+        const stdout = await new Response(proc.stdout).text();
+        const stderr = await new Response(proc.stderr).text();
+
+        // Wait for the process to exit
+        const exitCode = await proc.exited;
+
+        if (exitCode !== 0) {
+          throw new AppError(`OpenCode process failed with exit code ${exitCode}: ${stderr}`);
+        }
+
+        // OpenCode run returns plain text, not JSON
+        return stdout.trim();
+      } catch (error) {
+        lastError = error as Error;
+        logger.warn(`Attempt ${attempt} failed: ${error}`);
+        
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+        }
       }
-    } catch (error) {
-      logger.error("OpenCode client error:", error);
-      throw new AppError(`Failed to send message to OpenCode: ${error}`);
     }
+
+    throw new AppError(`Failed to send message after ${maxRetries} attempts: ${lastError}`);
   }
 }
 

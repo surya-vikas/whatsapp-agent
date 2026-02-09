@@ -1,5 +1,5 @@
-import { logger } from "../utils/logger";
-import { AppError } from "../utils/errors";
+import { logger } from "../../utils/logger";
+import { AppError } from "../../utils/errors";
 
 export interface ModelResolver {
   getActiveModel: () => Promise<string>;
@@ -39,29 +39,15 @@ export class OpenCodeModelResolver implements ModelResolver {
   private async testModel(model: string): Promise<boolean> {
     try {
       // Simple test: try to invoke the model with a basic prompt
-      const proc = await Bun.spawn("opencode", ["run", "-m", model, "--format", "json"], {
-        stdin: "pipe",
+      const proc = Bun.spawn(["opencode", "run", "-m", model, "test"], {
         stdout: "pipe",
         stderr: "pipe"
       });
 
-      await proc.stdin.write("test");
-      await proc.stdin.end();
+      const stdout = await new Response(proc.stdout).text();
+      const exitCode = await proc.exited;
 
-      const stdout = await proc.stdout.read();
-      const stderr = await proc.stderr.read();
-      const exitCode = await proc.exitCode;
-
-      if (exitCode === 0) {
-        try {
-          const response = JSON.parse(stdout);
-          return typeof response.content === "string";
-        } catch {
-          return false;
-        }
-      }
-
-      return false;
+      return exitCode === 0 && stdout.trim().length > 0;
     } catch {
       return false;
     }
@@ -71,3 +57,7 @@ export class OpenCodeModelResolver implements ModelResolver {
 export const createModelResolver = (): ModelResolver => {
   return new OpenCodeModelResolver();
 };
+
+// Convenience function for direct use
+const resolverInstance = new OpenCodeModelResolver();
+export const getActiveModel = (): Promise<string> => resolverInstance.getActiveModel();
