@@ -1,47 +1,56 @@
-import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys';
-import { logger } from '../../utils/logger';
+import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys'
+import qrcode from 'qrcode-terminal'
+import { logger } from '../../utils/logger'
 
 export interface WhatsAppConnection {
-  sock: any;
-  close: () => Promise<void>;
+  sock: any
+  close: () => Promise<void>
 }
 
 export const createConnection = async (): Promise<WhatsAppConnection> => {
-  logger.info('Initializing WhatsApp connection...');
+  logger.info('Initializing WhatsApp connection...')
 
-  const { state, saveCreds } = await useMultiFileAuthState('auth_info');
+  const { state, saveCreds } = await useMultiFileAuthState('auth_info')
+
   const sock = makeWASocket({
-    auth: state,
-    printQRInTerminal: true
-  });
+    auth: state
+    // ❌ removed printQRInTerminal
+  })
 
-  sock.ev.on('creds.update', saveCreds);
+  sock.ev.on('creds.update', saveCreds)
 
   sock.ev.on('connection.update', (update: any) => {
-    if (update.qr) {
-      logger.info('QR Code received, scan with WhatsApp:');
-      console.log(update.qr);
-    }
-    if (update.state === 'connected') {
-      logger.info('WhatsApp connected!');
-    } else if (update.state === 'disconnected') {
-      logger.warn('WhatsApp disconnected. Reason:', update.reason);
+    const { connection, lastDisconnect, qr } = update
 
-      if (update.reason === 'disconnected' || update.reason === 'loggedOut' || update.reason === 'userLoggedOut') {
-        logger.info('Attempting to reconnect...');
-        setTimeout(() => {
-          // Baileys v7 doesn't have forceRefocus, use existing connection
-          console.log('Reconnection not implemented in Baileys v7 - connection will need to be restarted');
-        }, 5000);
+    // ✅ Proper QR rendering
+    if (qr) {
+      logger.info('QR Code received. Scan with WhatsApp:')
+      qrcode.generate(qr, { small: true })
+    }
+
+    if (connection === 'open') {
+      logger.info('WhatsApp connected successfully!')
+    }
+
+    if (connection === 'close') {
+      const shouldReconnect =
+        (lastDisconnect?.error as any)?.output?.statusCode !==
+        DisconnectReason.loggedOut
+
+      logger.warn('Connection closed. Reconnecting:', shouldReconnect)
+
+      if (shouldReconnect) {
+        createConnection()
+      } else {
+        logger.error('Logged out. Delete auth_info folder and restart.')
       }
     }
-  });
+  })
 
   const close = async () => {
-    logger.info('Closing WhatsApp connection...');
-    // No explicit close method in Baileys v7
-    console.log('Connection close not implemented in Baileys v7 - process will need to be restarted');
-  };
+    logger.info('Closing WhatsApp connection...')
+    process.exit(0)
+  }
 
-  return { sock, close };
-};
+  return { sock, close }
+}
