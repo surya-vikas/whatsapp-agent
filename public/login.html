@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login - WA Agent</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/oatcss/dist/oat.min.css">
+  <script src="https://unpkg.com/oatjs/dist/oat.min.js"></script>
+</head>
+
+<body>
+
+<main container="sm">
+
+  <card>
+    <h2>Login</h2>
+
+    <form id="form">
+      <input type="email" name="email" placeholder="Email" required>
+      <input type="password" name="password" placeholder="Password" required>
+      <button primary block>Login</button>
+    </form>
+
+    <p>
+      Don't have an account?
+      <a href="/signup.html">Signup</a>
+    </p>
+
+    <p id="msg"></p>
+  </card>
+
+</main>
+
+<script>
+document.getElementById("form").onsubmit = async (e) => {
+  e.preventDefault()
+
+  const email = e.target.email.value
+  const password = e.target.password.value
+
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  })
+
+  const data = await res.json()
+
+  if (data.token) {
+    localStorage.setItem("token", data.token)
+    window.location.href = "/dashboard.html"
+  } else {
+    document.getElementById("msg").innerText = data.error
+  }
+}
+</script>
+
+</body>
+</html>

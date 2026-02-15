@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/oatcss/dist/oat.min.css">
+  <script src="https://unpkg.com/oatjs/dist/oat.min.js"></script>
+</head>
+
+<body>
+
+<main container="sm">
+  <card>
+    <h2>Dashboard</h2>
+    <div id="content"></div>
+  </card>
+</main>
+
+<script>
+const token = localStorage.getItem("token")
+
+if (!token) {
+  window.location.href = "/login.html"
+}
+
+fetch("/api/auth/me", {
+  headers: {
+    Authorization: "Bearer " + token
+  }
+})
+.then(res => res.json())
+.then(data => {
+  if (!data.wa_connected) {
+    document.getElementById("content").innerHTML = `
+      <p>You are not yet connected to WhatsApp</p>
+      <button primary block>Connect WhatsApp</button>
+    `
+  } else {
+    document.getElementById("content").innerHTML = `
+      <p>WhatsApp Connected ✅</p>
+    `
+  }
+})
+</script>
+
+</body>
+</html>

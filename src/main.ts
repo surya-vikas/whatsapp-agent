@@ -1,52 +1,62 @@
-#!/usr/bin/env bun
+import express from "express"
+import dotenv from "dotenv"
+import cookieParser from "cookie-parser"
+import { createConnection } from "./integrations/whatsapp/connection"
+import { createEventBridge } from "./integrations/whatsapp/events"
+import { createAgent } from "./core/agent/agents"
+import { logger } from "./utils/logger"
+import authRoutes from "./routes/authRoutes"
 
-import { createConnection } from './integrations/whatsapp/connection';
-import { createEventBridge } from './integrations/whatsapp/events';
-import { createAgent } from './core/agent/agents';
-import { logger } from './utils/logger';
 
-const main = async () => {
-  logger.info('Starting WhatsApp Agent...');
+dotenv.config()
+
+const app = express()
+app.use(express.json())
+app.use(cookieParser())
+app.use("/api/auth", authRoutes)
+app.use(express.static("public"))
+app.get("/", (req, res) => {
+  res.send("Server working ✅")
+})
+
+
+app.listen(3000, () => {
+  console.log("Server running on http://localhost:3000")
+})
+
+/* ===============================
+   WhatsApp Agent Bootstrap
+================================ */
+
+const startAgent = async () => {
+  logger.info("Starting WhatsApp Agent...")
 
   try {
-    // Create WhatsApp connection
-    const { sock } = await createConnection();
-    
-    // Create agent (single instance to maintain conversation history)
-    const agent = createAgent();
+    const { sock } = await createConnection()
+    const agent = createAgent()
+    const eventBridge = createEventBridge()
 
-    // Create event bridge
-    const eventBridge = createEventBridge();
     eventBridge.start(sock, async (message) => {
       try {
-        const response = await agent.processMessage(message.from, message.text);
-        
-        // Send response back via WhatsApp (Baileys v7 format)
-        await sock.sendMessage(message.from, { text: response });
-        
-        logger.info('Sent response to:', message.from);
+        const response = await agent.processMessage(
+          message.from,
+          message.text
+        )
+
+        await sock.sendMessage(message.from, { text: response })
+
+        logger.info("Sent response to:", message.from)
       } catch (error) {
-        logger.error('Error processing message from:', message.from, error);
+        logger.error("Error processing message:", error)
       }
-    });
+    })
 
-    // Handle graceful shutdown
-    const shutdown = async () => {
-      logger.info('Shutting down...');
-      eventBridge.stop();
-      await sock.close();
-      process.exit(0);
-    };
-
-    process.on('SIGINT', shutdown);
-    process.on('SIGTERM', shutdown);
-
-    logger.info('WhatsApp Agent is running...');
+    logger.info("WhatsApp Agent is running...")
 
   } catch (error) {
-    logger.error('Failed to start WhatsApp Agent:', error);
-    process.exit(1);
+    logger.error("Failed to start agent:", error)
+    process.exit(1)
   }
-};
+}
 
-main();
+startAgent()
