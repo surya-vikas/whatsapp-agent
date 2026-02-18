@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Connect WhatsApp</title>
+  <link rel="stylesheet" href="https://unpkg.com/oatcss/dist/oat.min.css">
+  <script src="https://unpkg.com/oatjs/dist/oat.min.js"></script>
+</head>
+<body>
+
+<main container="sm">
+  <card>
+    <h2>Connect WhatsApp</h2>
+    <div id="content"></div>
+  </card>
+</main>
+
+<script>
+    const token = localStorage.getItem("token")
+    if (!token) window.location.href = "/login.html"
+    
+    async function loadConnect() {
+    
+      const statusRes = await fetch("/api/whatsapp/status")
+      const status = await statusRes.json()
+    
+      // If already connected → redirect to hi
+      if (status.connected) {
+        window.location.href = "/hi.html"
+        return
+      }
+    
+      // If not connected → show QR
+      const qrRes = await fetch("/api/qr")
+      const qrData = await qrRes.json()
+    
+      if (qrData.qr) {
+        document.getElementById("content").innerHTML = `
+          <p>Scan this QR</p>
+          <img src="${qrData.qr}" width="250">
+        `
+      } else {
+        document.getElementById("content").innerHTML = `
+          <p>Generating QR...</p>
+          <progress></progress>
+        `
+      }
+    }
+    
+    loadConnect()
+    setInterval(loadConnect, 2000)
+    </script>
+
+</body>
+</html>
